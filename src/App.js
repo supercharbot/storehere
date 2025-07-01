@@ -4,6 +4,10 @@ import { getCurrentUser, signOut, fetchUserAttributes } from 'aws-amplify/auth';
 import './aws-config'; // Import to configure Amplify
 import MainLayout from './components/MainLayout';
 import Login from './components/Login';
+import HomePage from './components/HomePage';
+import SignIn from './components/SignIn';
+import SignUp from './components/SignUp';
+import Payment from './components/Payment';
 import './App.css';
 
 function App() {
@@ -69,18 +73,29 @@ function App() {
     );
   }
 
-  if (!user) {
-    return <Login onSignIn={handleSignIn} />;
-  }
-
   return (
     <Router>
       <Routes>
-        {/* Redirect root to system */}
-        <Route path="/" element={<Navigate to="/system" replace />} />
+        {/* Public routes */}
+        <Route path="/home" element={<HomePage />} />
+        <Route path="/signin" element={<SignIn />} />
+        <Route path="/signup" element={<SignUp />} />
+        <Route path="/payment" element={<Payment />} />
+        <Route path="/" element={<Navigate to="/home" replace />} />
         
-        {/* System routes */}
-        <Route path="/system/*" element={<MainLayout user={user} onSignOut={handleSignOut} />} />
+        {/* Admin login route */}
+        <Route path="/admin/login" element={
+          user ? <Navigate to="/system" replace /> : <Login onSignIn={handleSignIn} />
+        } />
+        
+        {/* Protected admin routes */}
+        <Route path="/system/*" element={
+          user ? (
+            <MainLayout user={user} onSignOut={handleSignOut} />
+          ) : (
+            <Navigate to="/admin/login" replace />
+          )
+        } />
       </Routes>
     </Router>
   );
