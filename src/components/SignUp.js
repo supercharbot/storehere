@@ -202,8 +202,7 @@ function SignUp({ onSignIn, onBack }) {
         'custom:postal_postcode': formData.postal_postcode,
         'custom:home_phone': formData.home_phone,
         'custom:marketing_consent': formData.marketing_consent.toString(),
-        'custom:registration_type': registrationType,
-        'custom:acp_title': formData.acp_title,
+        'custom:acp_title': formData.acp_title, 
         'custom:acp_first_name': formData.acp_first_name,
         'custom:acp_surname': formData.acp_surname,
         'custom:acp_address': formData.acp_address,
@@ -223,7 +222,9 @@ function SignUp({ onSignIn, onBack }) {
       const result = await signUp({
         username: formData.email,
         password: formData.password,
-        attributes: userAttributes
+        options: {
+            userAttributes: userAttributes
+        }
       });
 
       console.log('Sign up successful:', result);
@@ -248,24 +249,18 @@ function SignUp({ onSignIn, onBack }) {
     setError('');
 
     try {
-      await confirmSignUp({
-        username: formData.email,
-        confirmationCode: confirmationCode
-      });
+        await confirmSignUp({
+            username: formData.email,
+            confirmationCode: confirmationCode
+        });
 
-      // After successful confirmation, sign the user in automatically
-      const { signIn } = await import('aws-amplify/auth');
-      const user = await signIn({
-        username: formData.email,
-        password: formData.password
-      });
-
-      onSignIn(user);
+        // Redirect to system/clients page after successful confirmation
+        window.location.href = '/system/clients';
     } catch (error) {
-      console.error('Confirmation error:', error);
-      setError(error.message || 'Confirmation failed');
+        console.error('Confirmation error:', error);
+        setError(error.message || 'Confirmation failed');
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
 
