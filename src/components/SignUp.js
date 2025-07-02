@@ -54,7 +54,7 @@ function PasswordRequirements({ password, showRequirements }) {
   );
 }
 
-function SignUp({ onSignIn, onBack }) {
+function SignUp({ onSignIn }) {
   const [step, setStep] = useState('signup'); // 'signup' or 'confirm'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -254,8 +254,8 @@ function SignUp({ onSignIn, onBack }) {
             confirmationCode: confirmationCode
         });
 
-        // Redirect to system/clients page after successful confirmation
-        window.location.href = '/system/clients';
+        // Redirect to payment page after successful confirmation
+        window.location.href = '/payment';
     } catch (error) {
         console.error('Confirmation error:', error);
         setError(error.message || 'Confirmation failed');
@@ -847,7 +847,7 @@ function SignUp({ onSignIn, onBack }) {
             <div className="flex gap-4 pt-6">
               <button
                 type="button"
-                onClick={onBack}
+                onClick={() => window.location.href = '/signin'}
                 className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-3 px-6 rounded-lg font-medium"
               >
                 Back to Sign In

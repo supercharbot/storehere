@@ -81,8 +81,8 @@ function Payment() {
         confirmationCode
       });
       
-      // After confirmation, check user status
-      await checkUserStatus();
+      // After confirmation, redirect to client dashboard
+      window.location.href = '/client';
     } catch (error) {
       console.error('Confirmation error:', error);
       setError(error.message || 'Confirmation failed');
@@ -98,7 +98,13 @@ function Payment() {
   const handlePayment = () => {
     // TODO: Integrate with Stripe
     console.log('Processing payment for container:', selectedContainer);
-    alert('Stripe integration to be implemented');
+    
+    // For now, simulate successful payment and redirect to client dashboard
+    // Replace this with actual Stripe integration
+    setTimeout(() => {
+      alert('Payment successful! Welcome to StoreHere.');
+      window.location.href = '/client';
+    }, 1000);
   };
 
   if (loading) {

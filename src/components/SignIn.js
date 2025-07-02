@@ -20,7 +20,7 @@ function StoreLogo() {
   );
 }
 
-function SignIn() {
+function SignIn({ onSignIn }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,8 +34,14 @@ function SignIn() {
     try {
       const user = await signIn({ username: email, password });
       console.log('Sign in successful:', user);
-      // Redirect to client dashboard
-      window.location.href = '/dashboard';
+      
+      // Call the onSignIn handler to update app state
+      if (onSignIn) {
+        onSignIn(user);
+      } else {
+        // Fallback redirect if no handler provided
+        window.location.href = '/client';
+      }
     } catch (error) {
       console.error('Sign in error:', error);
       setError(error.message || 'Sign in failed');
