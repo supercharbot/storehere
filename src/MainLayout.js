@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Container, Users, BarChart3, User } from 'lucide-react';
 
@@ -60,16 +60,36 @@ function StoreLogo() {
 // Main Layout Component
 function MainLayout({ user, onSignOut }) {
   const location = useLocation();
+  const [userAttributes, setUserAttributes] = useState(null);
+
+  // Fetch user attributes on component mount
+  React.useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const { fetchUserAttributes } = await import('aws-amplify/auth');
+        const attributes = await fetchUserAttributes();
+        setUserAttributes(attributes);
+      } catch (error) {
+        console.error('Error fetching user attributes:', error);
+      }
+    };
+
+    if (user) {
+      fetchUserData();
+    }
+  }, [user]);
+
+  const displayName = userAttributes?.given_name || user?.username || 'User';
   
   const navigation = [
-    { name: 'Container', href: '/system', icon: Container },
-    { name: 'Clients', href: '/system/clients', icon: Users },
-    { name: 'Analytics', href: '/system/analytics', icon: BarChart3 },
-    { name: 'Profile', href: '/system/profile', icon: User },
+    { name: 'Container', href: '/admin', icon: Container },
+    { name: 'Clients', href: '/admin/clients', icon: Users },
+    { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
+    { name: 'Profile', href: '/admin/profile', icon: User },
   ];
 
   const isActive = (href) => {
-    if (href === '/system') return location.pathname === href;
+    if (href === '/admin') return location.pathname === href;
     return location.pathname.startsWith(href);
   };
 
@@ -82,7 +102,7 @@ function MainLayout({ user, onSignOut }) {
             <StoreLogo />
             <div className="flex items-center gap-4">
               <div className="text-sm text-gray-600">
-                Welcome, {user?.attributes?.given_name || user?.username || 'User'}
+                Welcome, {displayName}
               </div>
               <button
                 onClick={onSignOut}

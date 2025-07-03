@@ -254,6 +254,13 @@ function SignUp({ onSignIn }) {
             confirmationCode: confirmationCode
         });
 
+        // Sign in the user after confirmation
+        const { signIn } = await import('aws-amplify/auth');
+        await signIn({ 
+          username: formData.email, 
+          password: formData.password 
+        });
+
         // Redirect to payment page after successful confirmation
         window.location.href = '/payment';
     } catch (error) {

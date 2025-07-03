@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Trash2, MapPin, Package, MoreVertical } from 'lucide-react';
-import { getSites, createSite, deleteSite, getContainers, updateContainer, createContainer } from '../services/dynamodb';
+import { getSites, createSite, deleteSite, getContainers, updateContainer, createContainer } from './dynamodb';
 
 // Container status configurations
 const statusConfig = {
@@ -187,11 +187,8 @@ function ContainerGrid({ site, onBack }) {
   const loadContainers = async () => {
     try {
       setLoading(true);
-      console.log('loadContainers: fetching containers for site:', site.id);
       const containersData = await getContainers(site.id);
-      console.log('loadContainers: received data:', containersData);
       setContainers(containersData || []);
-      console.log('loadContainers: containers state updated');
     } catch (error) {
       console.error('Error loading containers:', error);
     } finally {
@@ -199,22 +196,31 @@ function ContainerGrid({ site, onBack }) {
     }
   };
 
-  // Filter out non-container items and only show containers that actually exist
-  const containerItems = containers.filter(item => item.type === 'container');
+  // Filter containers and determine status based on payment data
+  const containerItems = containers.filter(item => item.type === 'container').map(container => {
+    // Auto-determine status based on payment data
+    let status = container.status;
+    
+    if (container.subscriptionStatus === 'active' && container.securityBondStatus === 'paid') {
+      status = 'rented-paid';
+    } else if (container.subscriptionStatus === 'past_due' || container.overdueSince) {
+      status = 'rented-unpaid';
+    } else if (container.subscriptionStatus === 'canceled' || container.subscriptionStatus === 'inactive') {
+      status = 'available';
+    }
+    
+    return { ...container, status };
+  });
   
   const leftSide = containerItems.filter(c => {
     const num = parseInt(c.number.substring(1));
     return num <= 20;
   });
+  
   const rightSide = containerItems.filter(c => {
     const num = parseInt(c.number.substring(1));
     return num > 20;
   });
-  
-  console.log('All items from DB:', containers);
-  console.log('Container items only:', containerItems);
-  console.log('Left side containers:', leftSide);
-  console.log('Right side containers:', rightSide);
 
   const toggleContainerSelection = (container) => {
     setSelectedContainers(prev => 
@@ -227,13 +233,8 @@ function ContainerGrid({ site, onBack }) {
   const handleAddContainer = async () => {
     if (newContainerNumber.trim()) {
       try {
-        console.log('Creating container:', newContainerNumber, 'for site:', site.id);
-        const result = await createContainer(site.id, { number: newContainerNumber });
-        console.log('Container created:', result);
-        
-        console.log('Reloading containers...');
+        await createContainer(site.id, { number: newContainerNumber });
         await loadContainers();
-        
         setNewContainerNumber('');
         setShowAddModal(false);
       } catch (error) {
@@ -368,8 +369,12 @@ function ContainerGrid({ site, onBack }) {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="font-bold text-lg">{container.number}</div>
-                        {container.customerName && (
-                          <div className="text-sm opacity-90">{container.customerName}</div>
+                        {container.stripeCustomerId && (
+                          <div className="text-sm opacity-90">
+                            {container.subscriptionStatus === 'active' ? 'Active' : 
+                             container.subscriptionStatus === 'past_due' ? 'Past Due' : 
+                             container.subscriptionStatus === 'canceled' ? 'Canceled' : 'Inactive'}
+                          </div>
                         )}
                       </div>
                       <Package size={20} />
@@ -405,8 +410,12 @@ function ContainerGrid({ site, onBack }) {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="font-bold text-lg">{container.number}</div>
-                        {container.customerName && (
-                          <div className="text-sm opacity-90">{container.customerName}</div>
+                        {container.stripeCustomerId && (
+                          <div className="text-sm opacity-90">
+                            {container.subscriptionStatus === 'active' ? 'Active' : 
+                             container.subscriptionStatus === 'past_due' ? 'Past Due' : 
+                             container.subscriptionStatus === 'canceled' ? 'Canceled' : 'Inactive'}
+                          </div>
                         )}
                       </div>
                       <Package size={20} />

@@ -1,67 +1,112 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { getCurrentUser, signOut, fetchUserAttributes } from 'aws-amplify/auth';
-import './aws-config'; // Import to configure Amplify
-import MainLayout from './components/MainLayout';
-import Login from './components/Login';
-import HomePage from './components/HomePage';
-import SignIn from './components/SignIn';
-import SignUp from './components/SignUp';
-import Payment from './components/Payment';
-import ClientManagement from './components/ClientManagement';
-import './App.css';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { getCurrentUser, fetchUserAttributes, signOut } from 'aws-amplify/auth';
+import SignIn from './SignIn';
+import SignUp from './SignUp';
+import Payment from './Payment';
+import HomePage from './HomePage';
+import MainLayout from './MainLayout';
+import ClientManagement from './ClientManagement';
 
-function App() {
+// Protected Route Component
+function ProtectedRoute({ children, isAuthenticated, requiredRole = null, userRole = null }) {
+  if (!isAuthenticated) {
+    return <Navigate to="/signin" replace />;
+  }
+  
+  if (requiredRole && userRole !== requiredRole) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return children;
+}
+
+// Auth Provider Component
+function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [authChecked, setAuthChecked] = useState(false);
+  const [shouldNavigate, setShouldNavigate] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    checkAuthState();
+    checkAuthStatus();
   }, []);
 
-  const checkAuthState = async () => {
+  // Navigate after sign-in based on user role
+  useEffect(() => {
+    if (shouldNavigate && user) {
+      setShouldNavigate(false);
+      if (isAdmin) {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
+    }
+  }, [user, isAdmin, shouldNavigate, navigate]);
+
+  const checkAuthStatus = async () => {
     try {
-      console.log('Checking auth state...');
       const currentUser = await getCurrentUser();
-      const userAttributes = await fetchUserAttributes();
-      console.log('User found:', currentUser);
-      console.log('User attributes:', userAttributes);
-      
-      // Combine user info with attributes for easy access
-      const userWithAttributes = {
-        ...currentUser,
-        attributes: userAttributes
-      };
-      
-      setUser(userWithAttributes);
+      if (currentUser) {
+        await handleUserAuthentication(currentUser);
+      }
     } catch (error) {
-      console.log('No authenticated user:', error.message);
-      setUser(null);
+      console.log('No authenticated user found');
     } finally {
       setLoading(false);
-      setAuthChecked(true);
     }
   };
 
-  const handleSignIn = async (userData) => {
+  const handleUserAuthentication = async (authUser) => {
     try {
-      // Fetch user attributes after sign in
-      const userAttributes = await fetchUserAttributes();
-      const userWithAttributes = {
-        ...userData,
-        attributes: userAttributes
-      };
-      setUser(userWithAttributes);
+      setUser(authUser);
       
-      // Redirect based on user type - admin vs regular user
-      // For now, all authenticated users go to /client
-      // You can add logic here to determine admin vs regular user
-      window.location.href = '/client';
+      // Get tokens directly
+      const { fetchAuthSession } = await import('aws-amplify/auth');
+      const session = await fetchAuthSession();
+      
+      console.log('Auth session:', session);
+      console.log('Access token payload:', session.tokens?.accessToken?.payload);
+      console.log('ID token payload:', session.tokens?.idToken?.payload);
+      
+      // Check for groups in token payloads
+      const accessTokenGroups = session.tokens?.accessToken?.payload?.['cognito:groups'];
+      const idTokenGroups = session.tokens?.idToken?.payload?.['cognito:groups'];
+      
+      console.log('Access token groups:', accessTokenGroups);
+      console.log('ID token groups:', idTokenGroups);
+      
+      const groups = accessTokenGroups || idTokenGroups;
+      const userIsAdmin = groups && (
+        (Array.isArray(groups) && groups.includes('Admins')) ||
+        (typeof groups === 'string' && groups === 'Admins')
+      );
+      
+      setIsAdmin(userIsAdmin);
+      console.log('Final admin status:', userIsAdmin);
+      
     } catch (error) {
-      console.error('Error fetching user attributes:', error);
-      setUser(userData); // Fallback to user without attributes
-      window.location.href = '/client';
+      console.error('Error checking user groups:', error);
+      setIsAdmin(false);
+    }
+  };
+
+  const handleSignIn = async (authUser) => {
+    // Check if user needs to set new password first
+    if (authUser.nextStep?.signInStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
+      console.log('User needs to set new password');
+      return; // Let SignIn component handle this
+    }
+    
+    // Get the full authenticated user with tokens
+    try {
+      const currentUser = await getCurrentUser();
+      await handleUserAuthentication(currentUser);
+      setShouldNavigate(true); // Trigger navigation after state is set
+    } catch (error) {
+      console.error('Error getting current user:', error);
+      navigate('/');
     }
   };
 
@@ -69,57 +114,86 @@ function App() {
     try {
       await signOut();
       setUser(null);
-      window.location.href = '/home';
+      setIsAdmin(false);
+      navigate('/signin');
+      console.log('User signed out successfully');
     } catch (error) {
       console.error('Error signing out:', error);
     }
   };
 
-  // Show loading spinner while checking authentication
-  if (loading && !authChecked) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-lg text-gray-600">Loading...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <Router>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/home" element={<HomePage />} />
-        <Route path="/signin" element={
-          user ? <Navigate to="/client" replace /> : <SignIn onSignIn={handleSignIn} />
-        } />
-        <Route path="/signup" element={
-          user ? <Navigate to="/client" replace /> : <SignUp onSignIn={handleSignIn} />
-        } />
-        <Route path="/payment" element={<Payment />} />
-        <Route path="/" element={<Navigate to="/home" replace />} />
-        
-        {/* Client dashboard route - protected */}
-        <Route path="/client" element={
-          user ? <ClientManagement /> : <Navigate to="/signin" replace />
-        } />
-        
-        {/* Admin login route */}
-        <Route path="/admin/login" element={
-          user ? <Navigate to="/system" replace /> : <Login onSignIn={handleSignIn} />
-        } />
-        
-        {/* Protected admin routes */}
-        <Route path="/system/*" element={
+    <Routes>
+      <Route 
+        path="/signin" 
+        element={
           user ? (
-            <MainLayout user={user} onSignOut={handleSignOut} />
+            <Navigate to={isAdmin ? "/admin" : "/"} replace />
           ) : (
-            <Navigate to="/admin/login" replace />
+            <SignIn onSignIn={handleSignIn} />
           )
-        } />
-        
-        {/* Catch all route - redirect to home */}
-        <Route path="*" element={<Navigate to="/home" replace />} />
-      </Routes>
+        } 
+      />
+      <Route 
+        path="/signup" 
+        element={
+          user ? (
+            <Navigate to={isAdmin ? "/admin" : "/"} replace />
+          ) : (
+            <SignUp />
+          )
+        } 
+      />
+      <Route 
+        path="/payment" 
+        element={<Payment user={user} />} 
+      />
+      <Route 
+        path="/" 
+        element={
+          user ? (
+            isAdmin ? <Navigate to="/admin" replace /> : <HomePage user={user} onSignOut={handleSignOut} />
+          ) : (
+            <HomePage user={null} onSignOut={null} />
+          )
+        } 
+      />
+      <Route 
+        path="/client" 
+        element={
+          <ProtectedRoute isAuthenticated={!!user} requiredRole="user" userRole={isAdmin ? 'admin' : 'user'}>
+            <ClientManagement user={user} onSignOut={handleSignOut} />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/*" 
+        element={
+          <ProtectedRoute isAuthenticated={!!user} requiredRole="admin" userRole={isAdmin ? 'admin' : 'user'}>
+            <MainLayout user={user} onSignOut={handleSignOut} />
+          </ProtectedRoute>
+        } 
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AuthProvider />
     </Router>
   );
 }
