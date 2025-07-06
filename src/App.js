@@ -7,6 +7,7 @@ import Payment from './Payment';
 import HomePage from './HomePage';
 import MainLayout from './MainLayout';
 import ClientManagement from './ClientManagement';
+import Signature from './Signature';
 
 // Protected Route Component
 function ProtectedRoute({ children, isAuthenticated, requiredRole = null, userRole = null }) {
@@ -158,6 +159,10 @@ function AuthProvider({ children }) {
       <Route 
         path="/payment" 
         element={<Payment user={user} />} 
+      />
+      <Route 
+        path="/signature" 
+        element={<Signature />} 
       />
       <Route 
         path="/" 

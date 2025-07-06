@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { getCurrentUser, fetchUserAttributes, confirmSignUp } from 'aws-amplify/auth';
-import { ArrowLeft, CreditCard, Shield, Check } from 'lucide-react';
+import { ArrowLeft, CreditCard, Shield, Check, Package, Calendar } from 'lucide-react';
+import { getContainers, getSites } from './dynamodb';
 
 // Initialize Stripe
-const stripePromise = loadStripe('pk_test_51RauALCWFO1syG1hSp57tIMaDMjxylBP3pnYXXpEPcMdWUCH0YfBTnY1fqcX3o1IkydmtnRpiaxQnrehGpIF4QKQ00oPb0O9Pv');
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 
 // Logo Component
 function StoreLogo() {
@@ -39,43 +40,62 @@ const cardElementOptions = {
       color: '#9e2146',
     },
   },
-  hidePostalCode: true, // Add this line
+  hidePostalCode: true,
 };
 
-function PaymentForm({ selectedContainer, userAttributes, onPaymentSuccess }) {
+function PaymentForm({ availableContainer, userAttributes, selectedMonths, onPaymentSuccess }) {
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
 
+  const weeklyRate = 80;
+  const securityDeposit = 300;
+  const weeksToPayFor = selectedMonths * 4; // 4 weeks per month
+  const totalWeeklyPayments = weeksToPayFor * weeklyRate;
+  const totalAmount = totalWeeklyPayments + securityDeposit;
+
   const handlePayment = async (e) => {
     e.preventDefault();
     
-    if (!stripe || !elements || !selectedContainer) return;
+    if (!stripe || !elements || !availableContainer) return;
 
     setProcessing(true);
     setError(null);
 
     try {
-      // Create payment intent on your backend
+      // Create customer and subscription setup
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/create-payment-intent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: (selectedContainer.price + 300) * 100, // Convert to cents
-          currency: 'aud',
-          metadata: {
-            containerNumber: selectedContainer.id,
-            siteId: 'default-site', // Replace with actual site ID
-            userId: userAttributes.sub,
-            userEmail: userAttributes.email,
+          customerInfo: {
+            email: userAttributes.email,
+            name: `${userAttributes.given_name} ${userAttributes.family_name}`,
+            address: {
+              line1: userAttributes.home_address || userAttributes['custom:home_address'],
+              postal_code: userAttributes.postal_postcode || userAttributes['custom:postal_postcode'] || '12345'
+            }
+          },
+          subscriptionSetup: {
+            storageePriceId: process.env.REACT_APP_CONTAINER_STORAGE_PRICE_ID,
+            securityBondPriceId: process.env.REACT_APP_SECURITY_BOND_PRICE_ID,
+            prepaidMonths: selectedMonths,
+            metadata: {
+              containerNumber: availableContainer.number,
+              siteId: availableContainer.siteId,
+              userId: userAttributes.sub,
+              userEmail: userAttributes.email,
+              monthsPaid: selectedMonths,
+              weeksPaid: weeksToPayFor
+            }
           }
         })
       });
 
-      const { clientSecret } = await response.json();
+      const { clientSecret, customerId } = await response.json();
 
-      // Confirm payment
+      // Confirm payment with customer details
       const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
           card: elements.getElement(CardElement),
@@ -83,7 +103,7 @@ function PaymentForm({ selectedContainer, userAttributes, onPaymentSuccess }) {
             name: `${userAttributes.given_name} ${userAttributes.family_name}`,
             email: userAttributes.email,
             address: {
-              postal_code: '12345', // Add default postal code for testing
+              postal_code: userAttributes.postal_postcode || userAttributes['custom:postal_postcode'] || '12345',
             },
           },
         }
@@ -92,6 +112,22 @@ function PaymentForm({ selectedContainer, userAttributes, onPaymentSuccess }) {
       if (stripeError) {
         setError(stripeError.message);
       } else if (paymentIntent.status === 'succeeded') {
+        // Create subscription for future weekly payments
+        await fetch(`${process.env.REACT_APP_API_URL}/api/create-payment-intent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerId,
+            priceId: process.env.REACT_APP_CONTAINER_STORAGE_PRICE_ID,
+            startDate: new Date(Date.now() + (selectedMonths * 4 * 7 * 24 * 60 * 60 * 1000)), // Start after prepaid period
+            metadata: {
+              containerNumber: availableContainer.number,
+              siteId: availableContainer.siteId,
+              userId: userAttributes.sub
+            }
+          })
+        });
+        
         onPaymentSuccess();
       }
     } catch (err) {
@@ -104,25 +140,46 @@ function PaymentForm({ selectedContainer, userAttributes, onPaymentSuccess }) {
 
   return (
     <form onSubmit={handlePayment} className="space-y-6">
+      {/* Container Info */}
+      <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+        <div className="flex items-center gap-3 mb-3">
+          <Package className="w-5 h-5 text-blue-600" />
+          <h3 className="font-semibold text-blue-800">Your Container</h3>
+        </div>
+        <div className="text-sm text-blue-700">
+          <p><strong>Container:</strong> {availableContainer.number}</p>
+          <p><strong>Type:</strong> 20ft Standard Container</p>
+          <p><strong>Dimensions:</strong> 2.6m(H) × 2.4m(W) × 6.0m(L)</p>
+        </div>
+      </div>
+
       {/* Order Summary */}
       <div className="bg-gray-50 rounded-lg p-4">
-        <h3 className="font-semibold text-gray-800 mb-3">Order Summary</h3>
+        <h3 className="font-semibold text-gray-800 mb-3">Payment Summary</h3>
         <div className="space-y-2">
-          <div className="flex justify-between">
-            <span>Container: {selectedContainer.size}</span>
-          </div>
-          <div className="flex justify-between">
+          <div className="flex justify-between text-sm">
             <span>Weekly Rate:</span>
-            <span>${selectedContainer.price} inc GST</span>
+            <span>${weeklyRate}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex justify-between text-sm">
+            <span>Months Selected:</span>
+            <span>{selectedMonths} month{selectedMonths > 1 ? 's' : ''}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span>Weeks to Pay ({weeksToPayFor} weeks):</span>
+            <span>${totalWeeklyPayments}</span>
+          </div>
+          <div className="flex justify-between text-sm">
             <span>Security Deposit:</span>
-            <span>$300</span>
+            <span>${securityDeposit}</span>
           </div>
           <hr className="border-gray-300" />
-          <div className="flex justify-between font-semibold">
+          <div className="flex justify-between font-semibold text-lg">
             <span>Total Due Today:</span>
-            <span>${selectedContainer.price + 300}</span>
+            <span>${totalAmount}</span>
+          </div>
+          <div className="text-xs text-gray-600 mt-2">
+            This covers {selectedMonths} month{selectedMonths > 1 ? 's' : ''} of storage plus security deposit
           </div>
         </div>
       </div>
@@ -167,13 +224,13 @@ function PaymentForm({ selectedContainer, userAttributes, onPaymentSuccess }) {
         disabled={!stripe || processing}
         className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white py-3 px-4 rounded-lg font-semibold text-lg"
       >
-        {processing ? 'Processing...' : `Complete Payment ($${selectedContainer.price + 300})`}
+        {processing ? 'Processing...' : `Complete Payment ($${totalAmount})`}
       </button>
 
       {/* Terms */}
       <p className="text-xs text-gray-500 text-center">
         By completing this payment, you agree to our storage terms and conditions.
-        Your first payment covers the security deposit and first week of storage.
+        Payment covers {selectedMonths} month{selectedMonths > 1 ? 's' : ''} of storage plus security deposit.
       </p>
     </form>
   );
@@ -187,18 +244,67 @@ function Payment() {
   const [step, setStep] = useState('verify'); // 'verify' or 'payment'
   const [confirmationCode, setConfirmationCode] = useState('');
   const [error, setError] = useState('');
-  const [selectedContainer, setSelectedContainer] = useState(null);
-
-  // Container options
-  const containers = [
-    { id: 'A01', size: '20ft Standard', dimensions: '2.6m(H) × 2.4m(W) × 6.0m(L)', price: 80, available: true },
-    { id: 'A02', size: '20ft Standard', dimensions: '2.6m(H) × 2.4m(W) × 6.0m(L)', price: 80, available: true },
-    { id: 'A03', size: '20ft Standard', dimensions: '2.6m(H) × 2.4m(W) × 6.0m(L)', price: 80, available: false },
-  ];
+  const [availableContainer, setAvailableContainer] = useState(null);
+  const [selectedMonths, setSelectedMonths] = useState(1);
+  const [loadingContainers, setLoadingContainers] = useState(false);
 
   useEffect(() => {
     checkUserStatus();
   }, []);
+
+  useEffect(() => {
+    if (step === 'payment') {
+      loadAvailableContainers();
+    }
+  }, [step]);
+
+  const loadAvailableContainers = async () => {
+    setLoadingContainers(true);
+    try {
+      // First get all sites
+      const sites = await getSites();
+      let availableContainer = null;
+      
+      // Check each site for available containers
+      for (const site of sites) {
+        const containers = await getContainers(site.id);
+        
+        // Use same logic as Containers.js to determine availability
+        const available = containers.find(container => {
+          if (container.type !== 'container') return false;
+          
+          // Auto-determine status based on payment data (same logic as Containers.js)
+          let status = container.status;
+          
+          if (container.subscriptionStatus === 'active' && container.securityBondStatus === 'paid') {
+            status = 'rented-paid';
+          } else if (container.subscriptionStatus === 'past_due' || container.overdueSince) {
+            status = 'rented-unpaid';
+          } else if (container.subscriptionStatus === 'canceled' || container.subscriptionStatus === 'inactive') {
+            status = 'available';
+          }
+          
+          return status === 'available';
+        });
+        
+        if (available) {
+          availableContainer = { ...available, siteId: site.id, siteName: site.name };
+          break;
+        }
+      }
+      
+      setAvailableContainer(availableContainer);
+      
+      if (!availableContainer) {
+        setError('No containers currently available. Please contact us.');
+      }
+    } catch (error) {
+      console.error('Error loading containers:', error);
+      setError('Error loading available containers. Please try again.');
+    } finally {
+      setLoadingContainers(false);
+    }
+  };
 
   const checkUserStatus = async () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -245,13 +351,9 @@ function Payment() {
     }
   };
 
-  const handleContainerSelect = (container) => {
-    setSelectedContainer(container);
-  };
-
   const handlePaymentSuccess = () => {
-    alert('Payment successful! Welcome to StoreHere.');
-    window.location.href = '/';
+    alert(`Payment successful! You have secured container ${availableContainer.number} for ${selectedMonths} month${selectedMonths > 1 ? 's' : ''}. Welcome to StoreHere!`);
+    window.location.href = '/dashboard';
   };
 
   if (loading) {
@@ -268,48 +370,41 @@ function Payment() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-md w-full">
           <div className="bg-white rounded-lg shadow-lg p-8">
-            <button 
-              onClick={() => window.location.href = '/signup'}
-              className="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition-colors mb-6"
-            >
-              <ArrowLeft size={20} />
-              Back to Registration
-            </button>
-
             <StoreLogo />
             
             <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">
               Verify Your Email
             </h2>
             
-            <p className="text-center text-gray-600 mb-6">
-              We sent a confirmation code to {userEmail}
+            <p className="text-gray-600 text-center mb-6">
+              We've sent a verification code to <strong>{userEmail}</strong>
             </p>
-
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleConfirmSignUp} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Confirmation Code
+            
+            <form onSubmit={handleConfirmSignUp}>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Verification Code
                 </label>
                 <input
                   type="text"
                   value={confirmationCode}
                   onChange={(e) => setConfirmationCode(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="Enter 6-digit code"
                   required
                 />
               </div>
-
+              
+              {error && (
+                <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                  {error}
+                </div>
+              )}
+              
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white py-2 px-4 rounded-lg font-medium"
+                className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white py-2 px-4 rounded-lg font-semibold"
               >
                 {loading ? 'Verifying...' : 'Verify Email'}
               </button>
@@ -337,71 +432,89 @@ function Payment() {
         </div>
 
         <div className="max-w-4xl mx-auto py-8 px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Container Selection */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">Select Your Container</h2>
-              
-              <div className="space-y-4">
-                {containers.map((container) => (
-                  <div
-                    key={container.id}
-                    className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                      !container.available 
-                        ? 'border-gray-200 bg-gray-50 cursor-not-allowed' 
-                        : selectedContainer?.id === container.id
-                          ? 'border-orange-500 bg-orange-50'
-                          : 'border-gray-200 hover:border-orange-300'
-                    }`}
-                    onClick={() => container.available && handleContainerSelect(container)}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-semibold text-gray-800">{container.size}</h3>
-                        <p className="text-sm text-gray-600">{container.dimensions}</p>
-                        <div className="mt-2">
-                          <span className="text-2xl font-bold text-orange-500">${container.price}</span>
-                          <span className="text-sm text-gray-600">/week inc GST</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end">
-                        {container.available ? (
-                          <>
-                            <span className="text-green-600 text-sm font-medium">Available</span>
-                            {selectedContainer?.id === container.id && (
-                              <Check className="w-6 h-6 text-orange-500 mt-2" />
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-red-600 text-sm font-medium">Occupied</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+          {loadingContainers ? (
+            <div className="text-center py-12">
+              <div className="text-lg text-gray-600">Finding available containers...</div>
+            </div>
+          ) : !availableContainer ? (
+            <div className="text-center py-12">
+              <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+                <p className="font-semibold">No Available Containers</p>
+                <p className="text-sm mt-1">
+                  All containers are currently rented. Please contact us to join the waiting list.
+                </p>
               </div>
             </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Month Selection */}
+              <div className="bg-white rounded-lg shadow-lg p-6">
+                <h2 className="text-2xl font-bold text-gray-800 mb-6">Choose Payment Duration</h2>
+                
+                <div className="space-y-4 mb-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Calendar className="w-5 h-5 text-orange-500" />
+                    <span className="font-medium text-gray-700">How many months would you like to pay for?</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    {[1, 2, 3, 4, 6, 12].map((months) => (
+                      <button
+                        key={months}
+                        onClick={() => setSelectedMonths(months)}
+                        className={`p-3 rounded-lg border text-center transition-colors ${
+                          selectedMonths === months
+                            ? 'border-orange-500 bg-orange-50 text-orange-700'
+                            : 'border-gray-200 hover:border-orange-300'
+                        }`}
+                      >
+                        <div className="font-semibold">{months} Month{months > 1 ? 's' : ''}</div>
+                        <div className="text-sm text-gray-600">
+                          ${(months * 4 * 80) + 300} total
+                        </div>
+                        {months === 6 && (
+                          <div className="text-xs text-green-600 font-medium">Popular</div>
+                        )}
+                        {months === 12 && (
+                          <div className="text-xs text-orange-600 font-medium">Best Value</div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            {/* Payment Details */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">Payment Details</h2>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-800 mb-2">Pricing Breakdown</h3>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p>• Weekly rate: $80</p>
+                    <p>• Security deposit: $300 (refundable)</p>
+                    <p>• Total weeks: {selectedMonths * 4}</p>
+                    <p className="font-semibold text-gray-800 mt-2">
+                      Total: ${(selectedMonths * 4 * 80) + 300}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-              {selectedContainer ? (
-                <PaymentForm 
-                  selectedContainer={selectedContainer}
+              {/* Payment Form */}
+              <div className="bg-white rounded-lg shadow-lg p-6">
+                <h2 className="text-2xl font-bold text-gray-800 mb-6">Complete Payment</h2>
+                
+                {error && (
+                  <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                    {error}
+                  </div>
+                )}
+
+                <PaymentForm
+                  availableContainer={availableContainer}
                   userAttributes={userAttributes}
+                  selectedMonths={selectedMonths}
                   onPaymentSuccess={handlePaymentSuccess}
                 />
-              ) : (
-                <div className="text-center py-12">
-                  <div className="text-gray-400 mb-4">
-                    <CreditCard className="w-12 h-12 mx-auto" />
-                  </div>
-                  <p className="text-gray-600">Please select a container to continue with payment</p>
-                </div>
-              )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </Elements>

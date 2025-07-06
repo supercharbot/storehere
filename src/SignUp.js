@@ -93,6 +93,7 @@ function SignUp({ onSignIn }) {
     
     // Preferences
     marketing_consent: false,
+    electronic_consent: false,
     
     // ACP (Authorised Contact Person) details
     acp_title: '',
@@ -172,6 +173,12 @@ function SignUp({ onSignIn }) {
         setError('Please enter valid phone numbers');
         return false;
       }
+    }
+
+    // Electronic consent validation
+    if (!formData.electronic_consent) {
+      setError('You must consent to electronic correspondence');
+      return false;
     }
 
     return true;
@@ -261,8 +268,8 @@ function SignUp({ onSignIn }) {
           password: formData.password 
         });
 
-        // Redirect to payment page after successful confirmation
-        window.location.href = '/payment';
+        // Redirect to signature page after successful confirmation
+        window.location.href = '/signature';
     } catch (error) {
         console.error('Confirmation error:', error);
         setError(error.message || 'Confirmation failed');
@@ -846,6 +853,20 @@ function SignUp({ onSignIn }) {
                 <label htmlFor="marketing_consent" className="text-sm text-gray-700">
                   I consent to receiving marketing communications from StoreHere including 
                   promotions, updates, and relevant storage offers via email and SMS.
+                </label>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="electronic_consent"
+                  checked={formData.electronic_consent}
+                  onChange={(e) => handleInputChange('electronic_consent', e.target.checked)}
+                  className="mt-1 h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                  required
+                />
+                <label htmlFor="electronic_consent" className="text-sm text-gray-700">
+                  <span className="text-red-500">*</span> I consent to receiving correspondence (including Notices) from this Facility electronically (including email or SMS). It is your obligation to update your above details if they change.
                 </label>
               </div>
             </div>
