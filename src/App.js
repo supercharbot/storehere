@@ -41,7 +41,7 @@ function AuthProvider({ children }) {
       if (isAdmin) {
         navigate('/admin');
       } else {
-        navigate('/');
+        navigate('/client');
       }
     }
   }, [user, isAdmin, shouldNavigate, navigate]);
@@ -168,7 +168,7 @@ function AuthProvider({ children }) {
         path="/" 
         element={
           user ? (
-            isAdmin ? <Navigate to="/admin" replace /> : <HomePage user={user} onSignOut={handleSignOut} />
+            isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/client" replace />
           ) : (
             <HomePage user={null} onSignOut={null} />
           )

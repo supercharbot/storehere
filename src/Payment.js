@@ -54,7 +54,7 @@ function PaymentForm({ availableContainer, userAttributes, selectedMonths, onPay
   const weeksToPayFor = selectedMonths * 4; // 4 weeks per month
   const totalWeeklyPayments = weeksToPayFor * weeklyRate;
   const totalAmount = totalWeeklyPayments + securityDeposit;
-
+  
   const handlePayment = async (e) => {
     e.preventDefault();
     
@@ -64,38 +64,27 @@ function PaymentForm({ availableContainer, userAttributes, selectedMonths, onPay
     setError(null);
 
     try {
-      // Create customer and subscription setup
+      // Create payment intent for security bond + prepaid weeks
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/create-payment-intent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customerInfo: {
-            email: userAttributes.email,
-            name: `${userAttributes.given_name} ${userAttributes.family_name}`,
-            address: {
-              line1: userAttributes.home_address || userAttributes['custom:home_address'],
-              postal_code: userAttributes.postal_postcode || userAttributes['custom:postal_postcode'] || '12345'
-            }
-          },
-          subscriptionSetup: {
-            storageePriceId: process.env.REACT_APP_CONTAINER_STORAGE_PRICE_ID,
-            securityBondPriceId: process.env.REACT_APP_SECURITY_BOND_PRICE_ID,
-            prepaidMonths: selectedMonths,
-            metadata: {
-              containerNumber: availableContainer.number,
-              siteId: availableContainer.siteId,
-              userId: userAttributes.sub,
-              userEmail: userAttributes.email,
-              monthsPaid: selectedMonths,
-              weeksPaid: weeksToPayFor
-            }
+          amount: totalAmount * 100, // Convert to cents
+          currency: 'aud',
+          metadata: {
+            containerNumber: availableContainer.number,
+            siteId: availableContainer.siteId,
+            userId: userAttributes.sub,
+            userEmail: userAttributes.email,
+            monthsPaid: selectedMonths,
+            weeksPaid: weeksToPayFor
           }
         })
       });
 
-      const { clientSecret, customerId } = await response.json();
+      const { clientSecret } = await response.json();
 
-      // Confirm payment with customer details
+      // Confirm payment
       const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
           card: elements.getElement(CardElement),
@@ -112,22 +101,7 @@ function PaymentForm({ availableContainer, userAttributes, selectedMonths, onPay
       if (stripeError) {
         setError(stripeError.message);
       } else if (paymentIntent.status === 'succeeded') {
-        // Create subscription for future weekly payments
-        await fetch(`${process.env.REACT_APP_API_URL}/api/create-payment-intent`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            customerId,
-            priceId: process.env.REACT_APP_CONTAINER_STORAGE_PRICE_ID,
-            startDate: new Date(Date.now() + (selectedMonths * 4 * 7 * 24 * 60 * 60 * 1000)), // Start after prepaid period
-            metadata: {
-              containerNumber: availableContainer.number,
-              siteId: availableContainer.siteId,
-              userId: userAttributes.sub
-            }
-          })
-        });
-        
+        // Lambda will automatically create the subscription
         onPaymentSuccess();
       }
     } catch (err) {
