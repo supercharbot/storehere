@@ -703,7 +703,8 @@ function CreateClientModal({ onClose, onClientCreated }) {
 
       const stripeCustomerId = await createStripeCustomer(
         formData.email, 
-        `${formData.given_name} ${formData.family_name}`
+        `${formData.given_name} ${formData.family_name}`,
+        tempPassword
       );
 
       await updateContainerWithCustomer(formData.selectedSite, formData.selectedContainer, {

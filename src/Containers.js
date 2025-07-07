@@ -109,10 +109,7 @@ function SiteLocations({ onSiteSelect }) {
                   </button>
                 </div>
                 
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">
-                    {site.containerCapacity || 40} containers
-                  </span>
+                <div className="flex items-center justify-end">
                   <button
                     onClick={() => onSiteSelect(site)}
                     className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm"
@@ -212,15 +209,23 @@ function ContainerGrid({ site, onBack }) {
     return { ...container, status };
   });
   
-  const leftSide = containerItems.filter(c => {
-    const num = parseInt(c.number.substring(1));
-    return num <= 20;
+  // Sort containers and fill left side first
+  const sortedContainers = containerItems.sort((a, b) => {
+    // Handle numeric sorting for numbers like 1, 2, 3
+    const aNum = parseInt(a.number);
+    const bNum = parseInt(b.number);
+    
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      return aNum - bNum;
+    }
+    
+    // Handle alphanumeric sorting for letters like A, B, C or A01, A02
+    return a.number.localeCompare(b.number, undefined, { numeric: true });
   });
-  
-  const rightSide = containerItems.filter(c => {
-    const num = parseInt(c.number.substring(1));
-    return num > 20;
-  });
+
+  const leftSideCapacity = 20;
+  const leftSide = sortedContainers.slice(0, leftSideCapacity);
+  const rightSide = sortedContainers.slice(leftSideCapacity);
 
   const toggleContainerSelection = (container) => {
     setSelectedContainers(prev => 
@@ -436,7 +441,7 @@ function ContainerGrid({ site, onBack }) {
             <div className="space-y-4">
               <input
                 type="text"
-                placeholder="Container Number (e.g., A01, B15)"
+                placeholder="Container Number (e.g., A, B, C or 1, 2, 3)"
                 value={newContainerNumber}
                 onChange={(e) => setNewContainerNumber(e.target.value.toUpperCase())}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -459,6 +464,9 @@ function ContainerGrid({ site, onBack }) {
           </div>
         </div>
       )}
+
+      
+
     </div>
   );
 }

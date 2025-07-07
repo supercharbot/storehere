@@ -38,7 +38,6 @@ export const createSite = async (site) => {
     id: siteId,
     name: site.name,
     address: site.address,
-    containerCapacity: 40,
     createdAt: new Date().toISOString()
   };
   

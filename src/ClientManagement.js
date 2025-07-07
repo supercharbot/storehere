@@ -405,10 +405,18 @@ function ClientManagement() {
   const [userAttributes, setUserAttributes] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [containerInfo, setContainerInfo] = useState(null);
+  const [siteInfo, setSiteInfo] = useState(null);
 
   useEffect(() => {
     checkAuthState();
   }, []);
+
+  useEffect(() => {
+    if (userAttributes.email) {
+      fetchContainerInfo();
+    }
+  }, [userAttributes.email]);
 
   const checkAuthState = async () => {
     try {
@@ -433,6 +441,42 @@ function ClientManagement() {
     }
   };
 
+  const fetchContainerInfo = async () => {
+    try {
+      const params = {
+        TableName: 'storage-management',
+        FilterExpression: 'customerEmail = :email',
+        ExpressionAttributeValues: {
+          ':email': userAttributes.email
+        }
+      };
+      
+      const result = await dynamoDb.scan(params).promise();
+      
+      if (result.Items && result.Items.length > 0) {
+        const sortedItems = result.Items.sort((a, b) => 
+          new Date(b.lastPaymentDate) - new Date(a.lastPaymentDate)
+        );
+        setContainerInfo(sortedItems[0]);
+        
+        // Get site info
+        const siteId = sortedItems[0].PK.replace('SITE#', '');
+        const siteParams = {
+          TableName: 'storage-management',
+          Key: {
+            PK: `SITE#${siteId}`,
+            SK: 'METADATA'
+          }
+        };
+        
+        const siteResult = await dynamoDb.get(siteParams).promise();
+        setSiteInfo(siteResult.Item);
+      }
+    } catch (error) {
+      console.error('Error fetching container info:', error);
+    }
+  };
+  
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -526,34 +570,51 @@ function ClientManagement() {
                 </div>
               </div>
 
-              {/* Quick Actions */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <button 
-                    onClick={() => setActiveTab('billing')}
-                    className="p-4 text-left border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
-                  >
-                    <CreditCard className="text-orange-500 mb-2" size={24} />
-                    <h4 className="font-medium text-gray-800">View Billing</h4>
-                    <p className="text-sm text-gray-600">Check invoices and payments</p>
-                  </button>
-                  <button 
-                    onClick={() => setActiveTab('documents')}
-                    className="p-4 text-left border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
-                  >
-                    <FileText className="text-orange-500 mb-2" size={24} />
-                    <h4 className="font-medium text-gray-800">Documents</h4>
-                    <p className="text-sm text-gray-600">Access contracts and agreements</p>
-                  </button>
-                  <button 
-                    onClick={() => setActiveTab('profile')}
-                    className="p-4 text-left border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
-                  >
-                    <Settings className="text-orange-500 mb-2" size={24} />
-                    <h4 className="font-medium text-gray-800">Account Settings</h4>
-                    <p className="text-sm text-gray-600">Update your profile and preferences</p>
-                  </button>
+              {/* Container Information */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Your Storage Container</h3>
+                {containerInfo ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Container Number</label>
+                      <div className="text-2xl font-bold text-gray-900">{containerInfo.number}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Location</label>
+                      <div className="text-gray-900">{siteInfo?.name || 'Loading...'}</div>
+                      {siteInfo?.address && (
+                        <div className="text-sm text-gray-600">{siteInfo.address}</div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Status</label>
+                      <div className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                        {containerInfo.status?.replace('-', ' ').toUpperCase() || 'ACTIVE'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Next Payment Due</label>
+                      <div className="text-gray-900">
+                        {containerInfo.nextDueDate ? new Date(containerInfo.nextDueDate).toLocaleDateString() : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-gray-600">Loading container information...</div>
+                )}
+              </div>
+
+              {/* Support Section */}
+              <div className="bg-blue-50 rounded-lg shadow-sm border border-blue-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Need Help?</h3>
+                <p className="text-gray-600 mb-4">
+                  If you have any questions about your storage or account, don't hesitate to reach out to our support team.
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">Email us at:</span>
+                  <a href="mailto:support@storehere.com" className="text-orange-600 hover:text-orange-700 font-medium">
+                    support@storehere.com
+                  </a>
                 </div>
               </div>
             </div>

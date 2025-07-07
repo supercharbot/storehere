@@ -106,7 +106,7 @@ function Signature() {
       reader.readAsDataURL(pdfBlob);
     });
     
-    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/upload-agreement`, {
+    const response = await fetch(`${process.env.REACT_APP_API_URL}/upload-agreement`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
