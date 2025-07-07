@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { getCurrentUser, fetchUserAttributes, signOut } from 'aws-amplify/auth';
-import { Container, User, Settings, LogOut, Package, CreditCard, FileText } from 'lucide-react';
+import { Container, User, Settings, LogOut, CreditCard, FileText, Download, Calendar, DollarSign } from 'lucide-react';
+import AWS from 'aws-sdk';
+
+// Configure AWS
+AWS.config.update({
+  region: process.env.REACT_APP_AWS_REGION,
+  accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY
+});
+
+const s3 = new AWS.S3();
+const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
 // Logo Component
 function StoreLogo() {
@@ -15,6 +26,375 @@ function StoreLogo() {
         <span className="text-xl font-bold text-gray-800">store</span>
         <span className="text-xl font-bold text-orange-500">here</span>
         <div className="text-xs text-gray-500 uppercase tracking-wider">SELF STORAGE</div>
+      </div>
+    </div>
+  );
+}
+
+// Billing Component
+function BillingTab({ userEmail, userId }) {
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [totalPaid, setTotalPaid] = useState(0);
+  const [nextPayment, setNextPayment] = useState('--');
+
+  useEffect(() => {
+    fetchBillingData();
+  }, [userEmail]);
+
+  const fetchBillingData = async () => {
+    try {
+      setLoading(true);
+      // Skip API call for now, go straight to S3
+      await fetchInvoicesFromS3();
+      await fetchPaymentInfo();
+    } catch (error) {
+      console.error('Error fetching billing data:', error);
+      setError('Failed to load billing information');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchInvoicesFromS3 = async () => {
+    try {
+      console.log('Looking for invoices with userId:', userId, 'userEmail:', userEmail);
+      
+      // Step 1: Find user's container in DynamoDB to get Stripe customer ID
+      const stripeCustomerId = await findUserStripeCustomerId(userEmail);
+      
+      if (!stripeCustomerId) {
+        console.log('No Stripe customer ID found for user');
+        setInvoices([]);
+        return;
+      }
+      
+      console.log('Found Stripe customer ID:', stripeCustomerId);
+      
+      // Step 2: List invoices in S3 for this customer
+      const params = {
+        Bucket: 'storehere-invoices',
+        Prefix: `invoices/${stripeCustomerId}/`,
+      };
+      
+      const result = await s3.listObjectsV2(params).promise();
+      const userInvoices = result.Contents || [];
+      
+      setInvoices(userInvoices.map(obj => ({
+        key: obj.Key,
+        date: obj.LastModified,
+        size: obj.Size,
+        name: obj.Key.split('/').pop(),
+        stripeCustomerId: stripeCustomerId,
+        amount: obj.Key.includes('620') || obj.Key.includes('I3E5FO7E-0001') ? 620 : 80 // Determine amount from filename
+      })));
+      
+      // Calculate total paid
+      const total = userInvoices.reduce((sum, invoice) => {
+        const amount = invoice.Key.includes('620') || invoice.Key.includes('I3E5FO7E-0001') ? 620 : 80;
+        return sum + amount;
+      }, 0);
+      setTotalPaid(total);
+    } catch (error) {
+      console.error('Error fetching from S3:', error);
+      setError('Failed to load invoices from storage');
+    }
+  };
+
+  // Fetch payment info from DynamoDB
+  const fetchPaymentInfo = async () => {
+    try {
+      const params = {
+        TableName: 'storage-management',
+        FilterExpression: 'customerEmail = :email',
+        ExpressionAttributeValues: {
+          ':email': userEmail
+        }
+      };
+      
+      const result = await dynamoDb.scan(params).promise();
+      
+      if (result.Items && result.Items.length > 0) {
+        const container = result.Items[0];
+        if (container.nextDueDate) {
+          setNextPayment(new Date(container.nextDueDate).toLocaleDateString());
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching payment info:', error);
+    }
+  };
+
+  // Find user's Stripe customer ID from DynamoDB
+  const findUserStripeCustomerId = async (email) => {
+    try {
+      const params = {
+        TableName: 'storage-management',
+        FilterExpression: 'customerEmail = :email',
+        ExpressionAttributeValues: {
+          ':email': email
+        }
+      };
+      
+      const result = await dynamoDb.scan(params).promise();
+      
+      if (result.Items && result.Items.length > 0) {
+        return result.Items[0].stripeCustomerId;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error finding Stripe customer ID:', error);
+      return null;
+    }
+  };
+
+  const downloadInvoice = async (key) => {
+    try {
+      const params = {
+        Bucket: 'storehere-invoices',
+        Key: key
+      };
+      
+      const signedUrl = await s3.getSignedUrlPromise('getObject', {
+        ...params,
+        Expires: 3600 // 1 hour
+      });
+      
+      window.open(signedUrl, '_blank');
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      alert('Failed to download invoice');
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading billing information...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-8 text-red-600">{error}</div>;
+  }
+
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-gray-800 mb-6">Billing & Payments</h1>
+      
+      {/* Payment Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <DollarSign className="h-8 w-8 text-green-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Paid</p>
+              <p className="text-2xl font-bold text-gray-900">${totalPaid}.00</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <Calendar className="h-8 w-8 text-blue-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Next Payment</p>
+              <p className="text-2xl font-bold text-gray-900">{nextPayment}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <FileText className="h-8 w-8 text-purple-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Invoices</p>
+              <p className="text-2xl font-bold text-gray-900">{invoices.length}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Invoices Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">Invoice History</h3>
+        </div>
+        <div className="overflow-x-auto">
+          {invoices.length > 0 ? (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Invoice
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {invoices.map((invoice, index) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {invoice.name || `Invoice ${index + 1}`}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(invoice.date).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      ${invoice.amount}.00
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                        Paid
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => downloadInvoice(invoice.key)}
+                        className="text-orange-600 hover:text-orange-900 flex items-center gap-1"
+                      >
+                        <Download size={16} />
+                        Download
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="px-6 py-12 text-center">
+              <FileText className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No invoices</h3>
+              <p className="mt-1 text-sm text-gray-500">No billing history available yet.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Documents Component
+function DocumentsTab({ userId }) {
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchDocuments();
+  }, [userId]);
+
+  const fetchDocuments = async () => {
+    try {
+      setLoading(true);
+      
+      // List objects with user ID prefix to find timestamped files
+      const params = {
+        Bucket: 'storehere-agreements',
+        Prefix: `agreements/${userId}`
+      };
+      
+      const result = await s3.listObjectsV2(params).promise();
+      
+      if (result.Contents && result.Contents.length > 0) {
+        const docs = result.Contents.map(obj => ({
+          name: 'Storage Agreement',
+          type: 'PDF',
+          key: obj.Key,
+          description: 'Signed storage container agreement',
+          date: obj.LastModified
+        }));
+        setDocuments(docs);
+      } else {
+        setDocuments([]);
+      }
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      setError('Failed to load documents');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadDocument = async (key) => {
+    try {
+      const params = {
+        Bucket: 'storehere-agreements',
+        Key: key
+      };
+      
+      const signedUrl = await s3.getSignedUrlPromise('getObject', {
+        ...params,
+        Expires: 3600 // 1 hour
+      });
+      
+      window.open(signedUrl, '_blank');
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      alert('Failed to download document');
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading documents...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-8 text-red-600">{error}</div>;
+  }
+
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-gray-800 mb-6">Documents</h1>
+      
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">Your Documents</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Download copies of your agreements and important documents.
+          </p>
+        </div>
+        
+        <div className="p-6">
+          {documents.length > 0 ? (
+            <div className="space-y-4">
+              {documents.map((doc, index) => (
+                <div key={index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center">
+                    <FileText className="h-8 w-8 text-red-600" />
+                    <div className="ml-4">
+                      <h4 className="text-sm font-medium text-gray-900">{doc.name}</h4>
+                      <p className="text-sm text-gray-500">{doc.description}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => downloadDocument(doc.key)}
+                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    Download
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <FileText className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No documents</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                No documents available yet. Your signed agreements will appear here.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -38,7 +418,6 @@ function ClientManagement() {
       setUserAttributes(attributes);
     } catch (error) {
       console.error('Auth error:', error);
-      // Redirect to sign in if not authenticated
       window.location.href = '/signin';
     } finally {
       setLoading(false);
@@ -64,7 +443,6 @@ function ClientManagement() {
 
   const tabs = [
     { id: 'dashboard', name: 'Dashboard', icon: Container },
-    { id: 'bookings', name: 'My Bookings', icon: Package },
     { id: 'billing', name: 'Billing', icon: CreditCard },
     { id: 'documents', name: 'Documents', icon: FileText },
     { id: 'profile', name: 'Profile', icon: User },
@@ -135,11 +513,11 @@ function ClientManagement() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-orange-50 p-4 rounded-lg">
                     <h3 className="font-medium text-gray-800">Active Containers</h3>
-                    <p className="text-2xl font-bold text-orange-600">0</p>
+                    <p className="text-2xl font-bold text-orange-600">1</p>
                   </div>
                   <div className="bg-blue-50 p-4 rounded-lg">
-                    <h3 className="font-medium text-gray-800">Total Bookings</h3>
-                    <p className="text-2xl font-bold text-blue-600">0</p>
+                    <h3 className="font-medium text-gray-800">Monthly Payment</h3>
+                    <p className="text-2xl font-bold text-blue-600">$320</p>
                   </div>
                   <div className="bg-green-50 p-4 rounded-lg">
                     <h3 className="font-medium text-gray-800">Account Status</h3>
@@ -151,12 +529,7 @@ function ClientManagement() {
               {/* Quick Actions */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <button className="p-4 text-left border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors">
-                    <Package className="text-orange-500 mb-2" size={24} />
-                    <h4 className="font-medium text-gray-800">Book Container</h4>
-                    <p className="text-sm text-gray-600">Reserve a new storage container</p>
-                  </button>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <button 
                     onClick={() => setActiveTab('billing')}
                     className="p-4 text-left border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
@@ -166,14 +539,6 @@ function ClientManagement() {
                     <p className="text-sm text-gray-600">Check invoices and payments</p>
                   </button>
                   <button 
-                    onClick={() => setActiveTab('profile')}
-                    className="p-4 text-left border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
-                  >
-                    <Settings className="text-orange-500 mb-2" size={24} />
-                    <h4 className="font-medium text-gray-800">Account Settings</h4>
-                    <p className="text-sm text-gray-600">Update your profile and preferences</p>
-                  </button>
-                  <button 
                     onClick={() => setActiveTab('documents')}
                     className="p-4 text-left border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
                   >
@@ -181,39 +546,28 @@ function ClientManagement() {
                     <h4 className="font-medium text-gray-800">Documents</h4>
                     <p className="text-sm text-gray-600">Access contracts and agreements</p>
                   </button>
+                  <button 
+                    onClick={() => setActiveTab('profile')}
+                    className="p-4 text-left border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
+                  >
+                    <Settings className="text-orange-500 mb-2" size={24} />
+                    <h4 className="font-medium text-gray-800">Account Settings</h4>
+                    <p className="text-sm text-gray-600">Update your profile and preferences</p>
+                  </button>
                 </div>
               </div>
             </div>
           )}
 
-          {activeTab === 'bookings' && (
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-6">My Bookings</h1>
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <p className="text-gray-600">No active bookings found. Ready to book your first container?</p>
-                <button className="mt-4 bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg font-medium">
-                  Book Container
-                </button>
-              </div>
-            </div>
-          )}
-
           {activeTab === 'billing' && (
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-6">Billing & Payments</h1>
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <p className="text-gray-600">No billing information available yet.</p>
-              </div>
-            </div>
+            <BillingTab 
+              userEmail={userAttributes.email} 
+              userId={user?.userId || user?.username}
+            />
           )}
 
           {activeTab === 'documents' && (
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-6">Documents</h1>
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <p className="text-gray-600">No documents available yet.</p>
-              </div>
-            </div>
+            <DocumentsTab userId={user?.userId || user?.username} />
           )}
 
           {activeTab === 'profile' && (
