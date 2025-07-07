@@ -287,3 +287,134 @@ export const getOverdueContainers = async () => {
     throw error;
   }
 };
+
+// Get all containers that have customers assigned
+export const getAllContainersWithCustomers = async () => {
+  const params = {
+    TableName: TABLE_NAME,
+    FilterExpression: 'attribute_exists(customerEmail) AND customerEmail <> :empty',
+    ExpressionAttributeValues: {
+      ':empty': ''
+    }
+  };
+  
+  try {
+    const result = await dynamoDb.scan(params).promise();
+    return result.Items;
+  } catch (error) {
+    console.error('Error getting containers with customers:', error);
+    throw error;
+  }
+};
+
+// Find container by customer email
+export const getContainerByCustomerEmail = async (customerEmail) => {
+  const params = {
+    TableName: TABLE_NAME,
+    FilterExpression: 'customerEmail = :email',
+    ExpressionAttributeValues: {
+      ':email': customerEmail
+    }
+  };
+  
+  try {
+    const result = await dynamoDb.scan(params).promise();
+    return result.Items[0] || null;
+  } catch (error) {
+    console.error('Error finding container by customer email:', error);
+    throw error;
+  }
+};
+
+// Get site information by site ID
+export const getSiteById = async (siteId) => {
+  const params = {
+    TableName: TABLE_NAME,
+    Key: {
+      PK: `SITE#${siteId}`,
+      SK: 'METADATA'
+    }
+  };
+  
+  try {
+    const result = await dynamoDb.get(params).promise();
+    return result.Item;
+  } catch (error) {
+    console.error('Error getting site by ID:', error);
+    throw error;
+  }
+};
+
+// Add customerEmail field to container updates
+export const updateContainerWithCustomer = async (siteId, containerNumber, customerData) => {
+  const updateExpr = [];
+  const exprValues = {};
+  const exprNames = {};
+  
+  if (customerData.customerEmail) {
+    updateExpr.push('customerEmail = :email');
+    exprValues[':email'] = customerData.customerEmail;
+  }
+  
+  if (customerData.stripeCustomerId) {
+    updateExpr.push('stripeCustomerId = :customerId');
+    exprValues[':customerId'] = customerData.stripeCustomerId;
+  }
+  
+  if (customerData.stripeSubscriptionId) {
+    updateExpr.push('stripeSubscriptionId = :subscriptionId');
+    exprValues[':subscriptionId'] = customerData.stripeSubscriptionId;
+  }
+  
+  if (customerData.securityBondStatus) {
+    updateExpr.push('securityBondStatus = :bondStatus');
+    exprValues[':bondStatus'] = customerData.securityBondStatus;
+  }
+  
+  if (customerData.subscriptionStatus) {
+    updateExpr.push('subscriptionStatus = :subStatus');
+    exprValues[':subStatus'] = customerData.subscriptionStatus;
+  }
+  
+  if (customerData.status) {
+    updateExpr.push('#status = :containerStatus');
+    exprNames['#status'] = 'status';
+    exprValues[':containerStatus'] = customerData.status;
+  }
+  
+  if (customerData.lastPaymentDate) {
+    updateExpr.push('lastPaymentDate = :paymentDate');
+    exprValues[':paymentDate'] = customerData.lastPaymentDate;
+  }
+  
+  if (customerData.nextDueDate) {
+    updateExpr.push('nextDueDate = :nextDue');
+    exprValues[':nextDue'] = customerData.nextDueDate;
+  }
+  
+  if (customerData.rentStartDate) {
+    updateExpr.push('rentStartDate = :rentStart');
+    exprValues[':rentStart'] = customerData.rentStartDate;
+  }
+  
+  const params = {
+    TableName: TABLE_NAME,
+    Key: {
+      PK: `SITE#${siteId}`,
+      SK: `CONTAINER#${containerNumber}`
+    },
+    UpdateExpression: `SET ${updateExpr.join(', ')}`,
+    ExpressionAttributeValues: exprValues
+  };
+  
+  if (Object.keys(exprNames).length > 0) {
+    params.ExpressionAttributeNames = exprNames;
+  }
+  
+  try {
+    await dynamoDb.update(params).promise();
+  } catch (error) {
+    console.error('Error updating container with customer:', error);
+    throw error;
+  }
+};

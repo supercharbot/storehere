@@ -1,20 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Container, Users, BarChart3, User } from 'lucide-react';
-
+import Clients from './Clients';
 import Containers from './Containers';
 
 // Page Components - Container management now uses dedicated component
 
 function ClientsPage() {
-  return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">Clients</h1>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <p className="text-gray-600">Client management functionality coming soon...</p>
-      </div>
-    </div>
-  );
+  return <Clients />;
 }
 
 function AnalyticsPage() {
