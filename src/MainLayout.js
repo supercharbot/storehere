@@ -1,35 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Container, Users, BarChart3, User } from 'lucide-react';
+import { Container, Users, User } from 'lucide-react';
 import Clients from './Clients';
 import Containers from './Containers';
+import Profile from './Profile';
 
 // Page Components - Container management now uses dedicated component
 
 function ClientsPage() {
   return <Clients />;
-}
-
-function AnalyticsPage() {
-  return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">Analytics</h1>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <p className="text-gray-600">Analytics dashboard coming soon...</p>
-      </div>
-    </div>
-  );
-}
-
-function ProfilePage() {
-  return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">Profile</h1>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <p className="text-gray-600">Profile settings coming soon...</p>
-      </div>
-    </div>
-  );
 }
 
 // Logo Component
@@ -77,7 +56,6 @@ function MainLayout({ user, onSignOut }) {
   const navigation = [
     { name: 'Container', href: '/admin', icon: Container },
     { name: 'Clients', href: '/admin/clients', icon: Users },
-    { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
     { name: 'Profile', href: '/admin/profile', icon: User },
   ];
 
@@ -139,8 +117,7 @@ function MainLayout({ user, onSignOut }) {
           <Routes>
             <Route path="/" element={<Containers />} />
             <Route path="/clients" element={<ClientsPage />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/profile" element={<Profile />} />
           </Routes>
         </main>
       </div>
