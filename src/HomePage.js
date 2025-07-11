@@ -255,29 +255,87 @@ const HomePage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col touch-manipulation">
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.6s ease-out;
+        }
+        
+        /* Improve mobile touch targets */
+        @media (max-width: 768px) {
+          button, a, input[type="submit"] {
+            min-height: 44px !important;
+            min-width: 44px !important;
+          }
+          
+          /* Ensure gallery navigation is touch-friendly */
+          .gallery-nav button {
+            min-height: 48px !important;
+            min-width: 48px !important;
+            padding: 12px 16px !important;
+          }
+          
+          /* Larger touch targets for image dots */
+          .image-dot {
+            min-height: 44px !important;
+            min-width: 44px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+          }
+        }
+        
+        /* Smooth scrolling for mobile */
+        html {
+          scroll-behavior: smooth;
+        }
+        
+        /* Prevent zoom on iOS form inputs */
+        @media screen and (max-width: 767px) {
+          input[type="email"] {
+            font-size: 16px !important;
+          }
+        }
+        
+        /* Better mobile header spacing */
+        @media (max-width: 640px) {
+          .mobile-header {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+          }
+          
+          .mobile-logo {
+            max-width: 60% !important;
+            height: auto !important;
+          }
+        }
+      `}</style>
       {/* Header */}
       <header className="bg-white backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-24">
-            <div className="flex items-center">
+        <div className="max-w-7xl mx-auto mobile-header px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16 sm:h-20 lg:h-24">
+            <div className="flex items-center flex-1">
               <img 
                 src={`${S3_BUCKET_URL}/photos/White Landscape Logo.jpg`} 
                 alt="StoreHere Self Storage" 
-                className="h-20 w-auto"
+                className="mobile-logo h-10 sm:h-16 lg:h-20 w-auto max-w-[60%]"
               />
             </div>
             
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-6">
               <a 
                 href="/SignIn.js" 
-                className="text-gray-700 hover:text-orange-500 px-6 py-3 text-lg font-medium transition-all duration-300 hover:bg-gray-50 rounded-lg"
+                className="text-gray-700 hover:text-orange-500 px-3 sm:px-4 lg:px-6 py-3 sm:py-3 text-sm sm:text-base lg:text-lg font-medium transition-all duration-300 hover:bg-gray-50 rounded-lg min-h-[48px] flex items-center justify-center"
               >
                 Login
               </a>
               <a 
                 href="/SignUp.js" 
-                className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 sm:px-6 lg:px-8 py-3 sm:py-3 lg:py-4 rounded-full text-sm sm:text-base lg:text-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 min-h-[48px] flex items-center justify-center whitespace-nowrap"
               >
                 Sign Up
               </a>
@@ -288,7 +346,7 @@ const HomePage = () => {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative h-screen flex items-center justify-center overflow-hidden">
+        <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
           <div className="absolute inset-0 transition-opacity duration-1000">
             <img 
               src={galleryImages[currentImage]} 
@@ -298,38 +356,44 @@ const HomePage = () => {
             <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60"></div>
           </div>
           
-          <div className={`relative z-10 text-center px-4 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <h1 className="text-6xl md:text-8xl font-bold mb-6 bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">
+          <div className={`relative z-10 text-center px-4 sm:px-6 lg:px-8 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">
               STORAGE
             </h1>
-            <h2 className="text-4xl md:text-6xl font-bold mb-8 text-orange-500">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-bold mb-6 sm:mb-8 text-orange-500">
               MADE EASY
             </h2>
             
-            <div className="backdrop-blur-sm bg-white/20 rounded-3xl p-8 max-w-2xl mx-auto mb-12 border border-white/30">
-              <div className="text-5xl font-bold text-orange-400 mb-4">$80</div>
-              <div className="text-xl text-white mb-6">per week (inc GST)</div>
-              <div className="text-gray-200 space-y-2">
+            <div className="backdrop-blur-sm bg-white/20 rounded-2xl sm:rounded-3xl p-6 sm:p-8 max-w-2xl mx-auto mb-8 sm:mb-12 border border-white/30">
+              <div className="text-3xl sm:text-4xl lg:text-5xl font-bold text-orange-400 mb-2 sm:mb-4">$80</div>
+              <div className="text-lg sm:text-xl text-white mb-4 sm:mb-6">per week (inc GST)</div>
+              <div className="text-gray-200 space-y-1 sm:space-y-2 text-sm sm:text-base">
                 <p>20ft Shipping Containers • 24/7 Access • No Lock-in Contract</p>
                 <p>2.6m(H) × 2.4m(W) × 6.0m(L)</p>
               </div>
             </div>
             
-            <div className="flex justify-center space-x-3 mb-8">
+            <div className="flex justify-center space-x-3 sm:space-x-4 mb-6 sm:mb-8">
               {galleryImages.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentImage(index)}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                    index === currentImage ? 'bg-orange-500 scale-125' : 'bg-white/60 hover:bg-white/80'
+                  className={`image-dot w-11 h-11 rounded-full transition-all duration-300 flex items-center justify-center ${
+                    index === currentImage ? 'bg-orange-500/20 scale-110' : 'bg-white/40 hover:bg-white/60'
                   }`}
-                />
+                >
+                  <span 
+                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                      index === currentImage ? 'bg-orange-500 scale-125' : 'bg-white/80'
+                    }`}
+                  ></span>
+                </button>
               ))}
             </div>
             
             <a 
               href="/SignUp.js" 
-              className="inline-block bg-gradient-to-r from-orange-500 to-orange-600 text-white px-12 py-4 rounded-full text-xl font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-300 shadow-2xl hover:shadow-3xl transform hover:scale-105"
+              className="inline-block bg-gradient-to-r from-orange-500 to-orange-600 text-white px-8 sm:px-10 lg:px-12 py-3 sm:py-4 rounded-full text-lg sm:text-xl font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-300 shadow-2xl hover:shadow-3xl transform hover:scale-105"
             >
               Get Started
             </a>
@@ -338,28 +402,31 @@ const HomePage = () => {
 
         {/* Gallery Section */}
         <section className="bg-gradient-to-br from-orange-50 via-white to-gray-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-32">
             {/* Gallery Navigation */}
-            <div className="flex justify-center mb-12">
-              <div className="bg-white/80 backdrop-blur-sm p-2 rounded-2xl border border-gray-200 shadow-lg">
-                {[
-                  { id: 0, title: "Why Choose Us" },
-                  { id: 1, title: "Get Started" },
-                  { id: 2, title: "FAQ" },
-                  { id: 3, title: "Contact" }
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveSection(tab.id)}
-                    className={`px-6 py-3 mx-1 rounded-xl font-semibold transition-all duration-300 ${
-                      activeSection === tab.id
-                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg'
-                        : 'text-gray-600 hover:text-orange-500 hover:bg-gray-50'
-                    }`}
-                  >
-                    {tab.title}
-                  </button>
-                ))}
+            <div className="flex justify-center mb-8 sm:mb-12 overflow-x-auto px-4">
+              <div className="bg-white/80 backdrop-blur-sm p-1 sm:p-2 rounded-xl sm:rounded-2xl border border-gray-200 shadow-lg">
+                <div className="flex space-x-1 min-w-max">
+                  {[
+                    { id: 0, title: "Why Choose Us", shortTitle: "Why Us" },
+                    { id: 1, title: "Get Started", shortTitle: "Start" },
+                    { id: 2, title: "FAQ", shortTitle: "FAQ" },
+                    { id: 3, title: "Contact", shortTitle: "Contact" }
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveSection(tab.id)}
+                      className={`gallery-nav whitespace-nowrap px-4 sm:px-4 lg:px-6 py-3 sm:py-3 rounded-lg sm:rounded-xl text-sm sm:text-base lg:text-lg font-semibold transition-all duration-300 min-h-[48px] flex items-center justify-center ${
+                        activeSection === tab.id
+                          ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg'
+                          : 'text-gray-600 hover:text-orange-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="block sm:hidden">{tab.shortTitle}</span>
+                      <span className="hidden sm:block">{tab.title}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -368,13 +435,13 @@ const HomePage = () => {
               {/* Why Choose Us */}
               {activeSection === 0 && (
                 <div className="w-full animate-fadeIn">
-                  <div className="text-center mb-12">
-                    <h2 className="text-5xl font-bold mb-6 bg-gradient-to-r from-orange-600 to-gray-700 bg-clip-text text-transparent">
+                  <div className="text-center mb-8 sm:mb-12">
+                    <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-orange-600 to-gray-700 bg-clip-text text-transparent">
                       Why Choose Us?
                     </h2>
                   </div>
                   
-                  <div className="grid md:grid-cols-3 gap-8">
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                     {[
                       {
                         title: "CONVENIENT LOCATION",
@@ -390,9 +457,9 @@ const HomePage = () => {
                       }
                     ].map((feature, index) => (
                       <div key={index} className="group">
-                        <div className="bg-white/80 backdrop-blur-sm p-8 rounded-3xl border border-gray-200 hover:border-orange-300 transition-all duration-500 hover:shadow-2xl transform hover:scale-105">
-                          <h3 className="text-2xl font-bold text-gray-900 mb-4">{feature.title}</h3>
-                          <p className="text-gray-600 text-lg">{feature.subtitle}</p>
+                        <div className="bg-white/80 backdrop-blur-sm p-6 sm:p-8 rounded-2xl sm:rounded-3xl border border-gray-200 hover:border-orange-300 transition-all duration-500 hover:shadow-2xl transform hover:scale-105 h-full">
+                          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">{feature.title}</h3>
+                          <p className="text-base sm:text-lg text-gray-600">{feature.subtitle}</p>
                         </div>
                       </div>
                     ))}
@@ -403,13 +470,13 @@ const HomePage = () => {
               {/* Get Started */}
               {activeSection === 1 && (
                 <div className="w-full animate-fadeIn">
-                  <div className="text-center mb-12">
-                    <h2 className="text-5xl font-bold mb-6 bg-gradient-to-r from-orange-600 to-gray-700 bg-clip-text text-transparent">
+                  <div className="text-center mb-8 sm:mb-12">
+                    <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-orange-600 to-gray-700 bg-clip-text text-transparent">
                       Get Started in 5 Steps
                     </h2>
                   </div>
                   
-                  <div className="grid md:grid-cols-5 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
                     {[
                       { step: "01", title: "Check Availability", desc: "Call to confirm container availability" },
                       { step: "02", title: "Visit Office", desc: "Sign terms and provide photo ID" },
@@ -418,11 +485,11 @@ const HomePage = () => {
                       { step: "05", title: "Get Access", desc: "Receive gate code and move in" }
                     ].map((item, index) => (
                       <div key={index} className="group text-center">
-                        <div className="bg-gradient-to-br from-orange-500 to-orange-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold text-white group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                        <div className="bg-gradient-to-br from-orange-500 to-orange-600 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 text-xl sm:text-2xl font-bold text-white group-hover:scale-110 transition-transform duration-300 shadow-lg">
                           {item.step}
                         </div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-3">{item.title}</h3>
-                        <p className="text-gray-600 text-sm">{item.desc}</p>
+                        <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 sm:mb-3">{item.title}</h3>
+                        <p className="text-sm sm:text-base text-gray-600">{item.desc}</p>
                       </div>
                     ))}
                   </div>
@@ -432,24 +499,24 @@ const HomePage = () => {
               {/* FAQ */}
               {activeSection === 2 && (
                 <div className="w-full animate-fadeIn">
-                  <div className="text-center mb-12">
-                    <h2 className="text-5xl font-bold mb-6 bg-gradient-to-r from-orange-600 to-gray-700 bg-clip-text text-transparent">
+                  <div className="text-center mb-8 sm:mb-12">
+                    <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-orange-600 to-gray-700 bg-clip-text text-transparent">
                       Frequently Asked Questions
                     </h2>
-                    <p className="text-xl text-gray-600">
+                    <p className="text-lg sm:text-xl text-gray-600">
                       Need answers? Call us at <span className="text-orange-500 font-semibold">0408 805 996</span>
                     </p>
                   </div>
                   
                   <div className="max-w-4xl mx-auto">
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
                       {faqs.map((faq, index) => (
                         <div key={index} className="group">
-                          <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-200 hover:border-orange-300 transition-all duration-300 hover:shadow-lg h-full">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-3 group-hover:text-orange-500 transition-colors duration-300">
+                          <div className="bg-white/80 backdrop-blur-sm p-4 sm:p-6 rounded-xl sm:rounded-2xl border border-gray-200 hover:border-orange-300 transition-all duration-300 hover:shadow-lg h-full">
+                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 group-hover:text-orange-500 transition-colors duration-300">
                               {faq.question}
                             </h3>
-                            <p className="text-gray-600 text-sm leading-relaxed">{faq.answer}</p>
+                            <p className="text-sm sm:text-base text-gray-600 leading-relaxed">{faq.answer}</p>
                           </div>
                         </div>
                       ))}
@@ -461,13 +528,13 @@ const HomePage = () => {
               {/* Contact */}
               {activeSection === 3 && (
                 <div className="w-full animate-fadeIn">
-                  <div className="text-center mb-12">
-                    <h2 className="text-5xl font-bold mb-6 bg-gradient-to-r from-orange-600 to-gray-700 bg-clip-text text-transparent">
+                  <div className="text-center mb-8 sm:mb-12">
+                    <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-orange-600 to-gray-700 bg-clip-text text-transparent">
                       Contact Us
                     </h2>
                   </div>
                   
-                  <div className="grid md:grid-cols-3 gap-8">
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                     {[
                       { 
                         title: "Address", 
@@ -483,16 +550,16 @@ const HomePage = () => {
                       }
                     ].map((contact, index) => (
                       <div key={index} className="group">
-                        <div className="bg-white/80 backdrop-blur-sm p-8 rounded-3xl border border-gray-200 hover:border-orange-300 transition-all duration-500 hover:shadow-2xl transform hover:scale-105">
-                          <h3 className="text-xl font-bold text-gray-900 mb-3">{contact.title}</h3>
-                          <p className="text-gray-600">{contact.info}</p>
+                        <div className="bg-white/80 backdrop-blur-sm p-6 sm:p-8 rounded-2xl sm:rounded-3xl border border-gray-200 hover:border-orange-300 transition-all duration-500 hover:shadow-2xl transform hover:scale-105 h-full text-center">
+                          <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 sm:mb-3">{contact.title}</h3>
+                          <p className="text-sm sm:text-base text-gray-600">{contact.info}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                   
-                  <div className="text-center mt-12">
-                    <div className="text-gray-500 text-sm space-y-2">
+                  <div className="text-center mt-8 sm:mt-12">
+                    <div className="text-gray-500 text-xs sm:text-sm space-y-1 sm:space-y-2">
                       <p>Short or long term storage solutions for commercial or residential storage</p>
                       <p>©2022 by Store Here</p>
                     </div>
@@ -504,55 +571,55 @@ const HomePage = () => {
         </section>
 
         {/* Container Availability Section */}
-        <section className="py-20 bg-gradient-to-br from-orange-50 via-white to-gray-50">
+        <section className="py-16 sm:py-20 bg-gradient-to-br from-orange-50 via-white to-gray-50">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             {loadingContainers ? (
-              <div className="bg-white/80 backdrop-blur-sm p-12 rounded-3xl border border-gray-200 shadow-lg">
-                <h3 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-gray-700 bg-clip-text text-transparent mb-4">
+              <div className="bg-white/80 backdrop-blur-sm p-8 sm:p-12 rounded-2xl sm:rounded-3xl border border-gray-200 shadow-lg">
+                <h3 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-orange-600 to-gray-700 bg-clip-text text-transparent mb-4">
                   Checking Availability
                 </h3>
-                <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <div className="w-6 h-6 sm:w-8 sm:h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
               </div>
             ) : containersAvailable ? (
-              <div className="bg-white/80 backdrop-blur-sm p-12 rounded-3xl border border-gray-200 shadow-lg">
-                <h3 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-gray-700 bg-clip-text text-transparent mb-4">
+              <div className="bg-white/80 backdrop-blur-sm p-8 sm:p-12 rounded-2xl sm:rounded-3xl border border-gray-200 shadow-lg">
+                <h3 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-orange-600 to-gray-700 bg-clip-text text-transparent mb-4">
                   Containers Available
                 </h3>
-                <p className="text-xl text-gray-600 mb-8">
+                <p className="text-lg sm:text-xl text-gray-600 mb-6 sm:mb-8">
                   Great news! We have storage containers available right now. 
                   Get started with your storage solution today.
                 </p>
                 <a 
                   href="/SignUp.js" 
-                  className="inline-block bg-gradient-to-r from-orange-500 to-orange-600 text-white px-10 py-4 rounded-full text-xl font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                  className="inline-block bg-gradient-to-r from-orange-500 to-orange-600 text-white px-8 sm:px-10 py-3 sm:py-4 rounded-full text-lg sm:text-xl font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
                   Get a Container
                 </a>
               </div>
             ) : (
-              <div className="bg-white/80 backdrop-blur-sm p-12 rounded-3xl border border-gray-200 shadow-lg">
-                <h3 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-gray-700 bg-clip-text text-transparent mb-4">
+              <div className="bg-white/80 backdrop-blur-sm p-8 sm:p-12 rounded-2xl sm:rounded-3xl border border-gray-200 shadow-lg">
+                <h3 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-orange-600 to-gray-700 bg-clip-text text-transparent mb-4">
                   Currently Full
                 </h3>
-                <p className="text-xl text-gray-600 mb-8">
+                <p className="text-lg sm:text-xl text-gray-600 mb-6 sm:mb-8">
                   All containers are currently occupied. Join our waiting list to be notified 
                   when containers become available.
                 </p>
                 <form onSubmit={handleWaitingListSubmit} className="max-w-md mx-auto">
-                  <div className="flex gap-4">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                     <input
                       type="email"
                       value={waitingListEmail}
                       onChange={(e) => setWaitingListEmail(e.target.value)}
                       placeholder="Enter your email address"
-                      className="flex-1 px-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg"
+                      className="flex-1 px-4 py-4 border border-gray-300 rounded-full focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-base sm:text-lg min-h-[48px]"
                       required
                       disabled={submitStatus === 'loading'}
                     />
                     <button
                       type="submit"
                       disabled={submitStatus === 'loading'}
-                      className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-8 py-3 rounded-full font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                      className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 sm:px-8 py-4 rounded-full font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none min-h-[48px] flex items-center justify-center whitespace-nowrap"
                     >
                       {submitStatus === 'loading' ? 'Joining...' : 'Join List'}
                     </button>
@@ -594,7 +661,7 @@ const HomePage = () => {
           <img 
             src={`${S3_BUCKET_URL}/photos/Black Background Header panel.jpg`} 
             alt="StoreHere Footer" 
-            className="w-full h-auto object-cover object-center"
+            className="w-full h-auto object-cover object-center min-h-[80px] sm:min-h-[100px]"
           />
         </div>
       </footer>
