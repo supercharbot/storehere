@@ -214,7 +214,7 @@ const HomePage = () => {
     },
     {
       question: "How Much Does It Cost?",
-      answer: "$80 per week (inc GST) plus $300 refundable security bond. Payment required before access."
+      answer: "$85 per week (inc GST) plus $300 refundable security bond. Payment required before access."
     },
     {
       question: "Payment Options?",
@@ -328,16 +328,16 @@ const HomePage = () => {
             
             <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-6">
               <a 
-                href="/SignIn.js" 
+                href="/signin" 
                 className="text-gray-700 hover:text-orange-500 px-3 sm:px-4 lg:px-6 py-3 sm:py-3 text-sm sm:text-base lg:text-lg font-medium transition-all duration-300 hover:bg-gray-50 rounded-lg min-h-[48px] flex items-center justify-center"
               >
                 Login
               </a>
               <a 
-                href="/SignUp.js" 
-                className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 sm:px-6 lg:px-8 py-3 sm:py-3 lg:py-4 rounded-full text-sm sm:text-base lg:text-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 min-h-[48px] flex items-center justify-center whitespace-nowrap"
+                href="/SignUp" 
+                className="inline-block bg-gradient-to-r from-orange-500 to-orange-600 text-white px-8 sm:px-10 lg:px-12 py-3 sm:py-4 rounded-full text-lg sm:text-xl font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-300 shadow-2xl hover:shadow-3xl transform hover:scale-105"
               >
-                Sign Up
+                Get Started
               </a>
             </div>
           </div>
@@ -365,7 +365,7 @@ const HomePage = () => {
             </h2>
             
             <div className="backdrop-blur-sm bg-white/20 rounded-2xl sm:rounded-3xl p-6 sm:p-8 max-w-2xl mx-auto mb-8 sm:mb-12 border border-white/30">
-              <div className="text-3xl sm:text-4xl lg:text-5xl font-bold text-orange-400 mb-2 sm:mb-4">$80</div>
+              <div className="text-3xl sm:text-4xl lg:text-5xl font-bold text-orange-400 mb-2 sm:mb-4">$85</div>
               <div className="text-lg sm:text-xl text-white mb-4 sm:mb-6">per week (inc GST)</div>
               <div className="text-gray-200 space-y-1 sm:space-y-2 text-sm sm:text-base">
                 <p>20ft Shipping Containers • 24/7 Access • No Lock-in Contract</p>
