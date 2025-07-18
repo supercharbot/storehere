@@ -83,16 +83,17 @@ function SignUp({ onSignIn }) {
     company_name: '',
     abn: '',
     
+    // Verification method
+    verification_method: 'SMS', // Default to SMS
+    
     // Contact details
     home_address: '',
     home_postcode: '',
     postal_address: '', // Optional
     postal_postcode: '', // Optional
-    home_phone: '',
     work_phone: '',
     
     // Preferences
-    marketing_consent: false,
     electronic_consent: false,
     
     // ACP (Authorised Contact Person) details
@@ -101,7 +102,6 @@ function SignUp({ onSignIn }) {
     acp_surname: '',
     acp_address: '',
     acp_postcode: '',
-    acp_home_phone: '',
     acp_mobile_phone: '',
     acp_email: ''
   });
@@ -111,13 +111,23 @@ function SignUp({ onSignIn }) {
     setError('');
   };
 
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const formatPhoneNumber = (phone) => {
+    if (!phone) return phone;
+    // Remove all non-digit characters except the + sign
+    return phone.replace(/[^\d+]/g, '');
+  };
+
   const validateForm = () => {
     // Basic required fields for all registration types
     const basicRequiredFields = [
       'email', 'password', 'given_name', 'family_name', 'mobile_phone', 
-      'title', 'home_address', 'home_postcode', 'home_phone', 
+      'title', 'home_address', 'home_postcode', 
       'acp_title', 'acp_first_name', 'acp_surname', 'acp_address', 
-      'acp_postcode', 'acp_home_phone', 'acp_mobile_phone', 'acp_email'
+      'acp_postcode', 'acp_mobile_phone', 'acp_email'
     ];
 
     // Additional required fields for company registration
@@ -132,6 +142,7 @@ function SignUp({ onSignIn }) {
       if (!formData[field]?.trim()) {
         const fieldName = field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         setError(`${fieldName} is required`);
+        scrollToTop();
         return false;
       }
     }
@@ -139,11 +150,13 @@ function SignUp({ onSignIn }) {
     // Password validation
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      scrollToTop();
       return false;
     }
 
     if (formData.password.length < 8) {
       setError('Password must be at least 8 characters long');
+      scrollToTop();
       return false;
     }
 
@@ -151,17 +164,38 @@ function SignUp({ onSignIn }) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       setError('Please enter a valid email address');
+      scrollToTop();
       return false;
     }
 
     if (!emailRegex.test(formData.acp_email)) {
       setError('Please enter a valid ACP email address');
+      scrollToTop();
+      return false;
+    }
+
+    // Validate that ACP details are different from personal details
+    if (formData.acp_email === formData.email) {
+      setError('Authorised Contact Person email must be different from your personal email');
+      scrollToTop();
+      return false;
+    }
+
+    if (formData.acp_mobile_phone === formData.mobile_phone) {
+      setError('Authorised Contact Person mobile phone must be different from your personal mobile phone');
+      scrollToTop();
+      return false;
+    }
+
+    if (formData.acp_first_name === formData.given_name && formData.acp_surname === formData.family_name) {
+      setError('Authorised Contact Person must be a different person than yourself');
+      scrollToTop();
       return false;
     }
 
     // Phone number validation (basic)
     const phoneRegex = /^[\d\s\-\(\)\+]+$/;
-    const phonesToValidate = [formData.mobile_phone, formData.home_phone, formData.acp_home_phone, formData.acp_mobile_phone];
+    const phonesToValidate = [formData.mobile_phone, formData.acp_mobile_phone];
     
     // Add work phone validation only for company registration
     if (registrationType === 'company') {
@@ -171,6 +205,7 @@ function SignUp({ onSignIn }) {
     for (const phone of phonesToValidate) {
       if (phone && !phoneRegex.test(phone)) {
         setError('Please enter valid phone numbers');
+        scrollToTop();
         return false;
       }
     }
@@ -178,6 +213,7 @@ function SignUp({ onSignIn }) {
     // Electronic consent validation
     if (!formData.electronic_consent) {
       setError('You must consent to electronic correspondence');
+      scrollToTop();
       return false;
     }
 
@@ -199,7 +235,8 @@ function SignUp({ onSignIn }) {
         email: formData.email,
         given_name: formData.given_name,
         family_name: formData.family_name,
-        phone_number: formData.mobile_phone.startsWith('+') ? formData.mobile_phone : `+61${formData.mobile_phone.replace(/^0/, '')}`,
+        phone_number: formData.mobile_phone.startsWith('+') ?
+          formatPhoneNumber(formData.mobile_phone) : `+61${formData.mobile_phone.replace(/^0/, '')}`,
         
         // Custom attributes
         'custom:title': formData.title,
@@ -207,14 +244,11 @@ function SignUp({ onSignIn }) {
         'custom:home_postcode': formData.home_postcode,
         'custom:postal_address': formData.postal_address,
         'custom:postal_postcode': formData.postal_postcode,
-        'custom:home_phone': formData.home_phone,
-        'custom:marketing_consent': formData.marketing_consent.toString(),
         'custom:acp_title': formData.acp_title, 
         'custom:acp_first_name': formData.acp_first_name,
         'custom:acp_surname': formData.acp_surname,
         'custom:acp_address': formData.acp_address,
         'custom:acp_postcode': formData.acp_postcode,
-        'custom:acp_home_phone': formData.acp_home_phone,
         'custom:acp_mobile_phone': formData.acp_mobile_phone,
         'custom:acp_email': formData.acp_email
       };
@@ -230,7 +264,10 @@ function SignUp({ onSignIn }) {
         username: formData.email,
         password: formData.password,
         options: {
-            userAttributes: userAttributes
+            userAttributes: userAttributes,
+            autoSignIn: {
+              enabled: false
+            }
         }
       });
 
@@ -239,6 +276,7 @@ function SignUp({ onSignIn }) {
     } catch (error) {
       console.error('Sign up error:', error);
       setError(error.message || 'Sign up failed');
+      scrollToTop();
     } finally {
       setLoading(false);
     }
@@ -301,8 +339,8 @@ function SignUp({ onSignIn }) {
             </h2>
 
             <p className="text-sm text-gray-600 mb-6 text-center">
-              We've sent a confirmation code to <strong>{formData.email}</strong>. 
-              Please enter the code below to activate your account.
+              We've sent a verification {formData.verification_method === 'SMS' ? 'link via SMS to your mobile phone' : 'code to your email'} <strong>{formData.verification_method === 'SMS' ? formData.mobile_phone : formData.email}</strong>. 
+              {formData.verification_method === 'SMS' ? 'Click the link to verify your account.' : 'Please enter the code below to activate your account.'}
             </p>
 
             {error && (
@@ -446,6 +484,36 @@ function SignUp({ onSignIn }) {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
                 Account Information
+                {/* Verification Method Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Verification Method <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="verification_method"
+                      value="SMS"
+                      checked={formData.verification_method === 'SMS'}
+                      onChange={(e) => handleInputChange('verification_method', e.target.value)}
+                      className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">SMS (Recommended)</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="verification_method"
+                      value="EMAIL"
+                      checked={formData.verification_method === 'EMAIL'}
+                      onChange={(e) => handleInputChange('verification_method', e.target.value)}
+                      className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">Email</span>
+                  </label>
+                </div>
+              </div>
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -681,19 +749,6 @@ function SignUp({ onSignIn }) {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Home Phone <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.home_phone}
-                    onChange={(e) => handleInputChange('home_phone', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    required
-                  />
-                </div>
-
                 {registrationType === 'company' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -714,7 +769,7 @@ function SignUp({ onSignIn }) {
             {/* Authorised Contact Person */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                Authorised Contact Person (ACP)
+                Alternate Contact Person (ACP)
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -794,19 +849,7 @@ function SignUp({ onSignIn }) {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ACP Home Phone <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.acp_home_phone}
-                    onChange={(e) => handleInputChange('acp_home_phone', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    required
-                  />
-                </div>
-
+              
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ACP Mobile Phone <span className="text-red-500">*</span>
@@ -841,20 +884,6 @@ function SignUp({ onSignIn }) {
               <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
                 Preferences
               </h3>
-              
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  id="marketing_consent"
-                  checked={formData.marketing_consent}
-                  onChange={(e) => handleInputChange('marketing_consent', e.target.checked)}
-                  className="mt-1 h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                />
-                <label htmlFor="marketing_consent" className="text-sm text-gray-700">
-                  I consent to receiving marketing communications from StoreHere including 
-                  promotions, updates, and relevant storage offers via email and SMS.
-                </label>
-              </div>
 
               <div className="flex items-start gap-3">
                 <input
