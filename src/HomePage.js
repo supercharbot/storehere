@@ -478,10 +478,10 @@ const HomePage = () => {
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
                     {[
-                      { step: "01", title: "Check Availability", desc: "Call to confirm container availability" },
-                      { step: "02", title: "Visit Office", desc: "Sign terms and provide photo ID" },
-                      { step: "03", title: "Make Payment", desc: "Pay deposit and first month's rent" },
-                      { step: "04", title: "Setup GoCardless", desc: "Complete payment setup" },
+                      { step: "01", title: "Check Availability", desc: "Look below for container availability if not join our waiting list" },
+                      { step: "02", title: "Sign Up to Our System", desc: "Create an account and sign our contract" },
+                      { step: "03", title: "Rent Your Contianer", desc: "Rent a container digitally through stripe" },
+                      { step: "04", title: "Visit Our Office", desc: "Come in to see us so we can verify your identification" },
                       { step: "05", title: "Get Access", desc: "Receive gate code and move in" }
                     ].map((item, index) => (
                       <div key={index} className="group text-center">
@@ -603,7 +603,7 @@ const HomePage = () => {
                 </h3>
                 <p className="text-lg sm:text-xl text-gray-600 mb-6 sm:mb-8">
                   All containers are currently occupied. Join our waiting list to be notified 
-                  when containers become available.
+                  when containers become available. We get notified when you join our waiting list and contact quickly to get you a container.
                 </p>
                 <form onSubmit={handleWaitingListSubmit} className="max-w-md mx-auto">
                   <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
